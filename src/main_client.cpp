@@ -6,66 +6,37 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+using namespace std;
+
 int main() {
-    // 1. Create a TCP socket
+    // 1. Create socket
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (clientSocket == -1) {
-        perror("socket");
-        return 1;
-    }
-
-    // 2. Configure the server address
+    // 2. Set server address and port
     sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(8080);
+    inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr);
 
-    if (inet_pton(AF_INET, "127.0.0.1",
-                  &serverAddress.sin_addr) != 1) {
-        std::cerr << "Invalid server IP address.\n";
-        close(clientSocket);
-        return 1;
+    // 3. Connect to server
+    connect(clientSocket, (sockaddr*)&serverAddress, sizeof(serverAddress));
+
+    cout << "Connected to server!\n";
+
+    // 4. Send message
+    string message = "Hello from client!";
+    send(clientSocket, message.c_str(), message.size(), 0);
+
+    // 5. Receive reply
+    char buffer[1024] = {};
+    int n = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+
+    if (n > 0) {
+        buffer[n] = '\0';
+        cout << "Server says: " << buffer << endl;
     }
 
-    // 3. Connect to the server
-    if (connect(clientSocket,
-                reinterpret_cast<sockaddr*>(&serverAddress),
-                sizeof(serverAddress)) == -1) {
-        perror("connect");
-        close(clientSocket);
-        return 1;
-    }
-
-    std::cout << "Connected to server!\n";
-
-    // 4. Send a message
-    std::string message = "Hello from client!";
-
-    ssize_t bytesSent = send(
-        clientSocket, message.data(), message.size(), 0);
-
-    if (bytesSent == -1) {
-        perror("send");
-        close(clientSocket);
-        return 1;
-    }
-
-    // 5. Receive the server reply
-    char buffer[1024]{};
-
-    ssize_t bytesReceived = recv(
-        clientSocket, buffer, sizeof(buffer) - 1, 0);
-
-    if (bytesReceived > 0) {
-        buffer[bytesReceived] = '\0';
-        std::cout << "Server says: " << buffer << '\n';
-    } else if (bytesReceived == 0) {
-        std::cout << "Server closed the connection.\n";
-    } else {
-        perror("recv");
-    }
-
-    // 6. Close the socket
+    // 6. Close socket
     close(clientSocket);
 
     return 0;
