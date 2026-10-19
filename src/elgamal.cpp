@@ -68,4 +68,91 @@ Number decrypt(const Ciphertext& ciphertext, const KeyPair& key) {
     return (ciphertext.c2 * inverse) % p;
 }
 
+namespace {
+
+Number gcd(Number a, Number b) {
+    while (b != 0) {
+        Number remainder = a % b;
+        a = b;
+        b = remainder;
+    }
+    return a;
+}
+
+Number modInverse(Number a, Number modulus) {
+    // Extended Euclidean algorithm.
+    // Signed arithmetic is used for the coefficients.
+    std::int64_t t = 0, newT = 1;
+    std::int64_t r = static_cast<std::int64_t>(modulus);
+    std::int64_t newR = static_cast<std::int64_t>(a);
+
+    while (newR != 0) {
+        const std::int64_t q = r / newR;
+
+        const std::int64_t tempT = t - q * newT;
+        t = newT;
+        newT = tempT;
+
+        const std::int64_t tempR = r - q * newR;
+        r = newR;
+        newR = tempR;
+    }
+
+    if (r != 1) {
+        throw std::invalid_argument("Modular inverse does not exist");
+    }
+
+    if (t < 0) {
+        t += static_cast<std::int64_t>(modulus);
+    }
+
+    return static_cast<Number>(t);
+}
+
+}  // namespace
+
+Signature sign(Number hash, const KeyPair& keys, Number k) {
+    const Number p = keys.publicKey.p;
+
+    if (p < 5 || k < 1 || k >= p - 1 ||
+        gcd(k, p - 1) != 1) {
+        throw std::invalid_argument("Invalid signature nonce");
+    }
+
+    const Number r = modPow(keys.publicKey.g, k, p);
+    const Number kInverse = modInverse(k, p - 1);
+
+    // s = k^(-1) * (hash - x*r) mod (p - 1).
+    const Number modulus = p - 1;
+    const Number hashPart = hash % modulus;
+    const Number xrPart =
+        ((keys.privateKey % modulus) * r) % modulus;
+
+    const Number difference =
+        (hashPart + modulus - xrPart) % modulus;
+
+    const Number s = (kInverse * difference) % modulus;
+
+    return {r, s};
+}
+
+bool verify(Number hash, const Signature& signature,
+            const PublicKey& key) {
+    const Number p = key.p;
+
+    if (p < 5 || signature.r < 1 || signature.r >= p ||
+        signature.s >= p - 1) {
+        return false;
+    }
+
+    const Number left = modPow(key.g, hash, p);
+
+    const Number right =
+        (modPow(key.y, signature.r, p) *
+         modPow(signature.r, signature.s, p)) %
+        p;
+
+    return left == right;
+}
+
 }  // namespace elgamal

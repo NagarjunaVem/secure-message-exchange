@@ -35,6 +35,18 @@ Ciphertext encrypt(Number message, const PublicKey& key, Number k);
 // Decrypt an ElGamal ciphertext.
 Number decrypt(const Ciphertext& ciphertext, const KeyPair& key);
 
+struct Signature {
+    Number r;
+    Number s;
+};
+
+// Sign a message hash using the private key x.
+// The nonce k must be fresh, secret, and coprime to p - 1.
+Signature sign(Number hash, const KeyPair& keys, Number k);
+
+// Verify a signature using the public key.
+bool verify(Number hash, const Signature& signature, const PublicKey& key);
+
 }  // namespace elgamal
 
 #endif
