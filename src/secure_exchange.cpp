@@ -34,10 +34,8 @@ bool isPrime(elgamal::Number value) {
 }
 
 void validatePublicKey(const elgamal::PublicKey& key) {
-    if (key.p > numeric_limits<uint32_t>::max() || !isPrime(key.p) ||
-        key.g < 2 || key.g >= key.p || key.y < 1 || key.y >= key.p) {
-        throw invalid_argument(
-            "ElGamal needs a prime p no larger than 32 bits and valid g,y values");
+    if (key.p > numeric_limits<uint32_t>::max() || !isPrime(key.p) || key.g < 2 || key.g >= key.p || key.y < 1 || key.y >= key.p) {
+        throw invalid_argument("ElGamal needs a prime p no larger than 32 bits and valid g,y values");
     }
 
     elgamal::Number remainder = key.p - 1;
@@ -46,27 +44,21 @@ void validatePublicKey(const elgamal::PublicKey& key) {
             continue;
         }
         if (elgamal::modPow(key.g, (key.p - 1) / factor, key.p) == 1) {
-            throw invalid_argument(
-                "ElGamal g must generate the nonzero values modulo p");
+            throw invalid_argument("ElGamal g must generate the nonzero values modulo p");
         }
         while (remainder % factor == 0) {
             remainder /= factor;
         }
     }
-    if (remainder > 1 &&
-        elgamal::modPow(key.g, (key.p - 1) / remainder, key.p) == 1) {
-        throw invalid_argument(
-            "ElGamal g must generate the nonzero values modulo p");
+    if (remainder > 1 && elgamal::modPow(key.g, (key.p - 1) / remainder, key.p) == 1) {
+        throw invalid_argument("ElGamal g must generate the nonzero values modulo p");
     }
 }
 
 void validateKeyPair(const elgamal::KeyPair& keys) {
     validatePublicKey(keys.publicKey);
-    if (keys.privateKey < 1 || keys.privateKey >= keys.publicKey.p - 1 ||
-        elgamal::modPow(keys.publicKey.g, keys.privateKey, keys.publicKey.p) !=
-            keys.publicKey.y) {
-        throw invalid_argument(
-            "ElGamal private and public key parameters do not match");
+    if (keys.privateKey < 1 || keys.privateKey >= keys.publicKey.p - 1 || elgamal::modPow(keys.publicKey.g, keys.privateKey, keys.publicKey.p) != keys.publicKey.y) {
+        throw invalid_argument("ElGamal private and public key parameters do not match");
     }
 }
 
@@ -91,8 +83,7 @@ elgamal::Number randomNonce(elgamal::Number p, bool signatureNonce) {
     }
 }
 
-vector<elgamal::Number> splitSecretKey(uint32_t secretKey,
-                                       elgamal::Number base) {
+vector<elgamal::Number> splitSecretKey(uint32_t secretKey, elgamal::Number base) {
     vector<elgamal::Number> digits;
     elgamal::Number remaining = secretKey;
     do {
@@ -103,8 +94,7 @@ vector<elgamal::Number> splitSecretKey(uint32_t secretKey,
     return digits;
 }
 
-elgamal::Number digestToScalar(const crypto::WhirlpoolDigest& digest,
-                               elgamal::Number modulus) {
+elgamal::Number digestToScalar(const crypto::WhirlpoolDigest& digest, elgamal::Number modulus) {
     // Fold all 512 digest bits into the scalar domain without truncating bytes.
     elgamal::Number value = 0;
     for (const uint8_t byte : digest) {
@@ -124,10 +114,7 @@ crypto::WhirlpoolDigest hashMessage(const string& message) {
 
 }  // namespace
 
-ClientPacket prepareClientPacket(const string& message,
-                                 uint32_t secretKey,
-                                 const elgamal::KeyPair& clientKeys,
-                                 const elgamal::PublicKey& serverPublicKey) {
+ClientPacket prepareClientPacket(const string& message, uint32_t secretKey, const elgamal::KeyPair& clientKeys, const elgamal::PublicKey& serverPublicKey) {
     validateKeyPair(clientKeys);
     validatePublicKey(serverPublicKey);
 
@@ -142,25 +129,20 @@ ClientPacket prepareClientPacket(const string& message,
         const auto low = (offset + 1 < message.size())
                              ? static_cast<uint8_t>(message[offset + 1])
                              : 0U;
-        const uint16_t plaintext = static_cast<uint16_t>(
-            (static_cast<uint16_t>(high) << 8U) | low);
+        const uint16_t plaintext = static_cast<uint16_t>((static_cast<uint16_t>(high) << 8U) | low);
         simplified_idea::BlockTrace trace;
-        packet.ciphertextBlocks.push_back(
-            simplified_idea::encrypt(plaintext, secretKey, &trace));
+        packet.ciphertextBlocks.push_back(simplified_idea::encrypt(plaintext, secretKey, &trace));
         packet.encryptionTrace.push_back(trace);
     }
 
     // Encode the 32-bit IDEA key as base-p digits so every ElGamal plaintext
     // is smaller than the server's modulus, including with classroom primes.
-    for (const elgamal::Number digit :
-         splitSecretKey(secretKey, serverPublicKey.p)) {
-        packet.encryptedSecretKey.push_back(elgamal::encrypt(
-            digit, serverPublicKey, randomNonce(serverPublicKey.p, false)));
+    for (const elgamal::Number digit : splitSecretKey(secretKey, serverPublicKey.p)) {
+        packet.encryptedSecretKey.push_back(elgamal::encrypt(digit, serverPublicKey, randomNonce(serverPublicKey.p, false)));
     }
 
     const crypto::WhirlpoolDigest digest = hashMessage(message);
-    const elgamal::Number signingValue =
-        digestToScalar(digest, clientKeys.publicKey.p - 1);
+    const elgamal::Number signingValue = digestToScalar(digest, clientKeys.publicKey.p - 1);
     packet.signature = elgamal::sign(signingValue, clientKeys, randomNonce(clientKeys.publicKey.p, true));
     return packet;
 }
@@ -169,8 +151,7 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
     validateKeyPair(serverKeys);
     validatePublicKey(packet.clientPublicKey);
 
-    const size_t expectedBlocks =
-        packet.messageLength / 2U + packet.messageLength % 2U;
+    const size_t expectedBlocks = packet.messageLength / 2U + packet.messageLength % 2U;
     if (packet.ciphertextBlocks.size() != expectedBlocks || packet.encryptedSecretKey.empty()) {
         throw invalid_argument("Malformed encrypted message packet");
     }
@@ -178,8 +159,7 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
     elgamal::Number recoveredKey = 0;
     for (const elgamal::Ciphertext& encryptedDigit : packet.encryptedSecretKey) {
         const elgamal::Number digit = elgamal::decrypt(encryptedDigit, serverKeys);
-        if (digit >= serverKeys.publicKey.p ||
-            recoveredKey > (numeric_limits<uint32_t>::max() - digit) / serverKeys.publicKey.p) {
+        if (digit >= serverKeys.publicKey.p || recoveredKey > (numeric_limits<uint32_t>::max() - digit) / serverKeys.publicKey.p) {
             throw invalid_argument("Encrypted IDEA key is out of range");
         }
         recoveredKey = recoveredKey * serverKeys.publicKey.p + digit;
@@ -190,8 +170,7 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
     result.message.reserve(packet.ciphertextBlocks.size() * 2U);
     for (const uint16_t ciphertext : packet.ciphertextBlocks) {
         simplified_idea::BlockTrace trace;
-        const uint16_t plaintext =
-            simplified_idea::decrypt(ciphertext, result.secretKey, &trace);
+        const uint16_t plaintext = simplified_idea::decrypt(ciphertext, result.secretKey, &trace);
         result.decryptionTrace.push_back(trace);
         result.message.push_back(static_cast<char>(plaintext >> 8U));
         result.message.push_back(static_cast<char>(plaintext & 0xFFU));
@@ -199,10 +178,8 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
     result.message.resize(packet.messageLength);
 
     result.digest = hashMessage(result.message);
-    const elgamal::Number signingValue =
-        digestToScalar(result.digest, packet.clientPublicKey.p - 1);
-    result.signatureValid =
-        elgamal::verify(signingValue, packet.signature, packet.clientPublicKey);
+    const elgamal::Number signingValue = digestToScalar(result.digest, packet.clientPublicKey.p - 1);
+    result.signatureValid = elgamal::verify(signingValue, packet.signature, packet.clientPublicKey);
     return result;
 }
 

@@ -23,12 +23,10 @@ struct BlockTrace {
 };
 
 // Encrypt one 16-bit block using a 32-bit key.
-uint16_t encrypt(uint16_t plaintext, uint32_t key,
-                 BlockTrace* trace = nullptr);
+uint16_t encrypt(uint16_t plaintext, uint32_t key, BlockTrace* trace = nullptr);
 
 // Decrypt one 16-bit ciphertext block using the same key.
-uint16_t decrypt(uint16_t ciphertext, uint32_t key,
-                 BlockTrace* trace = nullptr);
+uint16_t decrypt(uint16_t ciphertext, uint32_t key, BlockTrace* trace = nullptr);
 
 }  // namespace simplified_idea
 

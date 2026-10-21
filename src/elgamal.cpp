@@ -26,8 +26,7 @@ Number modPow(Number base, Number exponent, Number modulus) {
 }
 
 KeyPair makeKeyPair(Number p, Number g, Number x) {
-    if (p < 5 || g < 2 || g >= p ||
-        x < 1 || x >= p - 1) {
+    if (p < 5 || g < 2 || g >= p || x < 1 || x >= p - 1) {
         throw invalid_argument("Invalid ElGamal parameters");
     }
 
@@ -39,9 +38,7 @@ KeyPair makeKeyPair(Number p, Number g, Number x) {
 }
 
 Ciphertext encrypt(Number message, const PublicKey& key, Number k) {
-    if (key.p < 5 || key.g < 2 || key.g >= key.p ||
-        key.y < 1 || key.y >= key.p ||
-        message >= key.p || k < 1 || k >= key.p - 1) {
+    if (key.p < 5 || key.g < 2 || key.g >= key.p || key.y < 1 || key.y >= key.p || message >= key.p || k < 1 || k >= key.p - 1) {
         throw invalid_argument("Invalid encryption parameters");
     }
 
@@ -55,13 +52,11 @@ Ciphertext encrypt(Number message, const PublicKey& key, Number k) {
 Number decrypt(const Ciphertext& ciphertext, const KeyPair& key) {
     const Number p = key.publicKey.p;
 
-    if (p < 5 || ciphertext.c1 < 1 ||
-        ciphertext.c1 >= p || ciphertext.c2 >= p) {
+    if (p < 5 || ciphertext.c1 < 1 || ciphertext.c1 >= p || ciphertext.c2 >= p) {
         throw invalid_argument("Invalid ciphertext");
     }
 
-    const Number shared =
-        modPow(ciphertext.c1, key.privateKey, p);
+    const Number shared = modPow(ciphertext.c1, key.privateKey, p);
 
     // Find the multiplicative inverse of shared modulo p.
     // This implementation assumes p is prime.
@@ -116,8 +111,7 @@ Number modInverse(Number a, Number modulus) {
 Signature sign(Number hash, const KeyPair& keys, Number k) {
     const Number p = keys.publicKey.p;
 
-    if (p < 5 || k < 1 || k >= p - 1 ||
-        gcd(k, p - 1) != 1) {
+    if (p < 5 || k < 1 || k >= p - 1 || gcd(k, p - 1) != 1) {
         throw invalid_argument("Invalid signature nonce");
     }
 
@@ -127,32 +121,26 @@ Signature sign(Number hash, const KeyPair& keys, Number k) {
     // s = k^(-1) * (hash - x*r) mod (p - 1).
     const Number modulus = p - 1;
     const Number hashPart = hash % modulus;
-    const Number xrPart =
-        ((keys.privateKey % modulus) * r) % modulus;
+    const Number xrPart = ((keys.privateKey % modulus) * r) % modulus;
 
-    const Number difference =
-        (hashPart + modulus - xrPart) % modulus;
+    const Number difference = (hashPart + modulus - xrPart) % modulus;
 
     const Number s = (kInverse * difference) % modulus;
 
     return {r, s};
 }
 
-bool verify(Number hash, const Signature& signature,
-            const PublicKey& key) {
+bool verify(Number hash, const Signature& signature, const PublicKey& key) {
     const Number p = key.p;
 
-    if (p < 5 || signature.r < 1 || signature.r >= p ||
-        signature.s >= p - 1) {
+    if (p < 5 || signature.r < 1 || signature.r >= p || signature.s >= p - 1) {
         return false;
     }
 
     const Number left = modPow(key.g, hash, p);
 
-    const Number right =
-        (modPow(key.y, signature.r, p) *
-         modPow(signature.r, signature.s, p)) %
-        p;
+    const Number right = (modPow(key.y, signature.r, p) * modPow(signature.r, signature.s, p)) %
+                         p;
 
     return left == right;
 }
