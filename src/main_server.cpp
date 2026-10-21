@@ -1,48 +1,124 @@
+/*
+ * Author: Vem Nagarjuna Reddy
+ * Roll Number: 20243315
+ * Purpose: Receive, decrypt, and verify a client's secure message.
+ */
 
+#include "exchange_protocol.h"
+#include "socket_utils.h"
+
+#include <cstdint>
+#include <iomanip>
 #include <iostream>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <limits>
+#include <stdexcept>
+#include <string>
 
 using namespace std;
 
-int main() {
-    // 1. Create socket
-    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+namespace {
 
-    // 2. Set server address and port
-    sockaddr_in serverAddress{};
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(8080);
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
-
-    // 3. Bind socket
-    bind(serverSocket, (sockaddr*)&serverAddress, sizeof(serverAddress));
-
-    // 4. Listen for client
-    listen(serverSocket, 5);
-    cout << "Server waiting for client...\n";
-
-    // 5. Accept client connection
-    int clientSocket = accept(serverSocket, nullptr, nullptr);
-    cout << "Client connected!\n";
-
-    // 6. Receive message
-    char buffer[1024] = {};
-    int n = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-
-    if (n > 0) {
-        buffer[n] = '\0';
-        cout << "Client says: " << buffer << endl;
-
-        // 7. Send reply
-        string reply = "Hello from server!";
-        send(clientSocket, reply.c_str(), reply.size(), 0);
+elgamal::KeyPair readServerKeys() {
+    elgamal::Number p = 0;
+    elgamal::Number g = 0;
+    elgamal::Number x = 0;
+    cout << "Server ElGamal parameters:\n";
+    cout << "  Prime p (example: 467): ";
+    cin >> p;
+    cout << "  Generator g (example: 2): ";
+    cin >> g;
+    cout << "  Private key x (example: 127): ";
+    cin >> x;
+    if (!cin) {
+        throw invalid_argument("Could not read server ElGamal parameters");
     }
+    return elgamal::makeKeyPair(p, g, x);
+}
 
-    // 8. Close sockets
-    close(clientSocket);
-    close(serverSocket);
+uint16_t parsePort(const char* value) {
+    const unsigned long parsed = stoul(value);
+    if (parsed == 0 || parsed > numeric_limits<uint16_t>::max()) {
+        throw invalid_argument("Port must be between 1 and 65535");
+    }
+    return static_cast<uint16_t>(parsed);
+}
 
-    return 0;
+void printNibbleState(const array<uint8_t, 4>& state) {
+    for (const uint8_t nibble : state) {
+        cout << hex << uppercase << static_cast<unsigned int>(nibble);
+    }
+    cout << dec;
+}
+
+void printDecryptionTrace(const vector<simplified_idea::BlockTrace>& traces) {
+    cout << "Intermediate decryption process (inverse rounds 4 to 1):\n";
+    for (size_t block = 0; block < traces.size(); ++block) {
+        cout << "  Block " << block + 1 << ": ";
+        for (size_t round = 0; round < 4; ++round) {
+            cout << "undo-R" << 4U - round << '=';
+            printNibbleState(traces[block].roundOutput[round]);
+            cout << ' ';
+        }
+        cout << "Recovered=";
+        printNibbleState(traces[block].finalOutput);
+        cout << '\n';
+    }
+    if (traces.empty()) {
+        cout << "  (empty message; no IDEA blocks)\n";
+    }
+}
+
+void printServerResult(const secure_exchange::ClientPacket& packet, const secure_exchange::ServerResult& result, const elgamal::KeyPair& serverKeys) {
+    cout << "\nServer Side:\n";
+    cout << "Input: Public Key parameters (p, g, y): " << serverKeys.publicKey.p << ", " << serverKeys.publicKey.g << ", " << serverKeys.publicKey.y << '\n';
+    cout << "Private key parameters (x): " << serverKeys.privateKey << '\n';
+    cout << "Client Public Key parameters (p, g, y): " << packet.clientPublicKey.p << ", " << packet.clientPublicKey.g << ", " << packet.clientPublicKey.y << '\n';
+    cout << "Decrypted Secret Key: 0x" << hex << uppercase << setw(8) << setfill('0') << result.secretKey << dec << setfill(' ') << " (32-bit)\n";
+    printDecryptionTrace(result.decryptionTrace);
+    cout << "Decrypt Message: " << result.message << '\n';
+    cout << "Hash code (Whirlpool-512): " << secure_exchange::digestHex(result.digest) << '\n';
+    cout << "Verification code: " << (result.signatureValid ? "valid" : "invalid") << '\n';
+    cout << "Signature: " << (result.signatureValid ? "valid" : "invalid") << '\n';
+    cout << "Message: " << (result.signatureValid ? "Accepted" : "Rejected") << '\n';
+}
+
+}  // namespace
+
+int main(int argc, char* argv[]) {
+    try {
+        if (argc > 2) {
+            throw invalid_argument("Usage: server [port]");
+        }
+        const uint16_t port = (argc > 1) ? parsePort(argv[1]) : 8080;
+        cout << "Secure Message Exchange - Server\n"
+             << "Author: Vem Nagarjuna Reddy\n"
+             << "Roll Number: 20243315\n\n";
+        const elgamal::KeyPair serverKeys = readServerKeys();
+
+        socket_utils::SocketRuntime runtime;
+        socket_utils::TcpSocket listener = socket_utils::TcpSocket::listenOn(port);
+        cout << "Listening on port " << port << "; waiting for a client...\n";
+        socket_utils::TcpSocket connection = listener.acceptOne();
+        cout << "Client connected.\n";
+
+        const vector<uint8_t> request = socket_utils::receiveFrame(connection, 1);
+        if (request.size() != 1 || request[0] != exchange_protocol::REQUEST_PUBLIC_KEY) {
+            throw invalid_argument("Expected a server public-key request");
+        }
+
+        const vector<uint8_t> publicKeyFrame = exchange_protocol::encodePublicKey(serverKeys.publicKey);
+        socket_utils::sendFrame(connection, publicKeyFrame.data(), publicKeyFrame.size());
+
+        const vector<uint8_t> packetFrame = socket_utils::receiveFrame(connection);
+        const secure_exchange::ClientPacket packet = exchange_protocol::decodeClientPacket(packetFrame);
+        const secure_exchange::ServerResult result = secure_exchange::processClientPacket(packet, serverKeys);
+        printServerResult(packet, result, serverKeys);
+
+        const vector<uint8_t> reply = exchange_protocol::encodeServerReply(result);
+        socket_utils::sendFrame(connection, reply.data(), reply.size());
+        return result.signatureValid ? 0 : 1;
+    } catch (const exception& error) {
+        cerr << "Server error: " << error.what() << '\n';
+        return 1;
+    }
 }
