@@ -1,8 +1,8 @@
 /*
-* Author: Vem Nagarjuna Reddy
-* Roll Number: 20243315
-* Purpose: In-memory client/server cryptographic exchange.
-*/
+ * Author: Vem Nagarjuna Reddy
+ * Roll Number: 20243315
+ * Purpose: In-memory client/server cryptographic exchange.
+ */
 
 #ifndef SECURE_EXCHANGE_H
 #define SECURE_EXCHANGE_H
