@@ -1,11 +1,13 @@
 #include "elgamal.h"
 #include <stdexcept>
 
+using namespace std;
+
 namespace elgamal {
 
 Number modPow(Number base, Number exponent, Number modulus) {
     if (modulus < 2) {
-        throw std::invalid_argument("Modulus must be at least 2");
+        throw invalid_argument("Modulus must be at least 2");
     }
 
     Number result = 1;
@@ -26,7 +28,7 @@ Number modPow(Number base, Number exponent, Number modulus) {
 KeyPair makeKeyPair(Number p, Number g, Number x) {
     if (p < 5 || g < 2 || g >= p ||
         x < 1 || x >= p - 1) {
-        throw std::invalid_argument("Invalid ElGamal parameters");
+        throw invalid_argument("Invalid ElGamal parameters");
     }
 
     KeyPair keys;
@@ -40,7 +42,7 @@ Ciphertext encrypt(Number message, const PublicKey& key, Number k) {
     if (key.p < 5 || key.g < 2 || key.g >= key.p ||
         key.y < 1 || key.y >= key.p ||
         message >= key.p || k < 1 || k >= key.p - 1) {
-        throw std::invalid_argument("Invalid encryption parameters");
+        throw invalid_argument("Invalid encryption parameters");
     }
 
     const Number c1 = modPow(key.g, k, key.p);
@@ -55,7 +57,7 @@ Number decrypt(const Ciphertext& ciphertext, const KeyPair& key) {
 
     if (p < 5 || ciphertext.c1 < 1 ||
         ciphertext.c1 >= p || ciphertext.c2 >= p) {
-        throw std::invalid_argument("Invalid ciphertext");
+        throw invalid_argument("Invalid ciphertext");
     }
 
     const Number shared =
@@ -82,28 +84,28 @@ Number gcd(Number a, Number b) {
 Number modInverse(Number a, Number modulus) {
     // Extended Euclidean algorithm.
     // Signed arithmetic is used for the coefficients.
-    std::int64_t t = 0, newT = 1;
-    std::int64_t r = static_cast<std::int64_t>(modulus);
-    std::int64_t newR = static_cast<std::int64_t>(a);
+    int64_t t = 0, newT = 1;
+    int64_t r = static_cast<int64_t>(modulus);
+    int64_t newR = static_cast<int64_t>(a);
 
     while (newR != 0) {
-        const std::int64_t q = r / newR;
+        const int64_t q = r / newR;
 
-        const std::int64_t tempT = t - q * newT;
+        const int64_t tempT = t - q * newT;
         t = newT;
         newT = tempT;
 
-        const std::int64_t tempR = r - q * newR;
+        const int64_t tempR = r - q * newR;
         r = newR;
         newR = tempR;
     }
 
     if (r != 1) {
-        throw std::invalid_argument("Modular inverse does not exist");
+        throw invalid_argument("Modular inverse does not exist");
     }
 
     if (t < 0) {
-        t += static_cast<std::int64_t>(modulus);
+        t += static_cast<int64_t>(modulus);
     }
 
     return static_cast<Number>(t);
@@ -116,7 +118,7 @@ Signature sign(Number hash, const KeyPair& keys, Number k) {
 
     if (p < 5 || k < 1 || k >= p - 1 ||
         gcd(k, p - 1) != 1) {
-        throw std::invalid_argument("Invalid signature nonce");
+        throw invalid_argument("Invalid signature nonce");
     }
 
     const Number r = modPow(keys.publicKey.g, k, p);

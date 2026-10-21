@@ -6,6 +6,8 @@
 // Roll Number: 20243315
 // Educational ElGamal encryption/decryption test.
 
+using namespace std;
+
 int main() {
     using namespace elgamal;
 
@@ -23,20 +25,20 @@ int main() {
 
     const Number recovered = decrypt(ciphertext, keys);
 
-    std::cout << "ElGamal Test\n";
-    std::cout << "Public key (p, g, y): " << keys.publicKey.p << ", " << keys.publicKey.g << ", " << keys.publicKey.y << '\n';
+    cout << "ElGamal Test\n";
+    cout << "Public key (p, g, y): " << keys.publicKey.p << ", " << keys.publicKey.g << ", " << keys.publicKey.y << '\n';
 
-    std::cout << "Ciphertext (c1, c2): " << ciphertext.c1 << ", " << ciphertext.c2 << '\n';
+    cout << "Ciphertext (c1, c2): " << ciphertext.c1 << ", " << ciphertext.c2 << '\n';
 
-    std::cout << "Original message: " << plaintext << '\n';
-    std::cout << "Decrypted message: " << recovered << '\n';
+    cout << "Original message: " << plaintext << '\n';
+    cout << "Decrypted message: " << recovered << '\n';
 
     assert(recovered == plaintext);
 
     // Test modular exponentiation.
     assert(modPow(2, 10, 1000) == 24);
 
-    std::cout << "All ElGamal tests passed!\n";
+    cout << "All ElGamal tests passed!\n";
 
     const Number hash = 234;
     const Signature signature = sign(hash, keys, 53);
@@ -44,7 +46,7 @@ int main() {
     assert(verify(hash, signature, keys.publicKey));
     assert(!verify(hash + 1, signature, keys.publicKey));
 
-    std::cout << "Digital signature test passed!\n";
+    cout << "Digital signature test passed!\n";
 
     return 0;
 }
