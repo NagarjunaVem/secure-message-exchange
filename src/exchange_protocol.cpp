@@ -19,6 +19,7 @@ void appendU8(Bytes& bytes, uint8_t value) {
 }
 
 void appendU16(Bytes& bytes, uint16_t value) {
+    // Store numbers in network byte order: most significant byte first.
     bytes.push_back(static_cast<uint8_t>(value >> 8U));
     bytes.push_back(static_cast<uint8_t>(value));
 }
@@ -147,6 +148,7 @@ elgamal::PublicKey decodePublicKey(const Bytes& frame) {
 }
 
 Bytes encodeClientPacket(const secure_exchange::ClientPacket& packet) {
+    // Keep each field in a fixed order so the server can read it back safely.
     Bytes frame;
     frame.reserve(1U + 8U + 4U + packet.ciphertextBlocks.size() * 2U + 4U + packet.encryptedSecretKey.size() * 16U + 40U);
     appendU8(frame, CLIENT_CRYPTO_PACKET);
@@ -169,6 +171,7 @@ Bytes encodeClientPacket(const secure_exchange::ClientPacket& packet) {
 }
 
 secure_exchange::ClientPacket decodeClientPacket(const Bytes& frame) {
+    // Read the fields in the same order used by encodeClientPacket().
     Reader reader(frame);
     expectType(reader, CLIENT_CRYPTO_PACKET);
     const uint64_t messageLength = reader.readU64();

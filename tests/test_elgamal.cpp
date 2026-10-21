@@ -2,7 +2,7 @@
 #include <cassert>
 #include <iostream>
 
-// Author: V. Nagarjuna Reddy
+// Author: Vem Nagarjuna Reddy
 // Roll Number: 20243315
 // Educational ElGamal encryption/decryption test.
 

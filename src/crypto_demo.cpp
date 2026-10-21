@@ -109,9 +109,7 @@ void printEncryptedKey(const vector<elgamal::Ciphertext>& encryptedKey) {
 
 int main() {
     try {
-        cout << "Secure Message Exchange - Cryptography Demo\n"
-             << "Author: Vem Nagarjuna Reddy\n"
-             << "Roll Number: 20243315\n\n";
+        cout << "Secure Message Exchange - Cryptography Demo\n" << "Author: Vem Nagarjuna Reddy\n" << "Roll Number: 20243315\n\n";
 
         string message;
         cout << "Client input message: ";

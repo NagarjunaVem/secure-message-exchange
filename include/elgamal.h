@@ -1,3 +1,7 @@
+// Author: Vem Nagarjuna Reddy
+// Roll Number: 20243315
+// Purpose: ElGamal key, encryption, and signature declarations.
+
 #ifndef ELGAMAL_H
 #define ELGAMAL_H
 

@@ -103,9 +103,7 @@ int main(int argc, char* argv[]) {
         const string host = (argc > 1) ? argv[1] : "127.0.0.1";
         const uint16_t port = (argc > 2) ? parsePort(argv[2]) : 8080;
 
-        cout << "Secure Message Exchange - Client\n"
-             << "Author: Vem Nagarjuna Reddy\n"
-             << "Roll Number: 20243315\n\n";
+        cout << "Secure Message Exchange - Client\n" << "Author: Vem Nagarjuna Reddy\n" << "Roll Number: 20243315\n\n";
 
         string message;
         cout << "Input message: ";
@@ -122,6 +120,7 @@ int main(int argc, char* argv[]) {
         socket_utils::SocketRuntime runtime;
         socket_utils::TcpSocket connection = socket_utils::TcpSocket::connectTo(host, port);
 
+        // Get the server key before encrypting the IDEA key for the server.
         const uint8_t request = exchange_protocol::REQUEST_PUBLIC_KEY;
         socket_utils::sendFrame(connection, &request, 1);
         const vector<uint8_t> serverKeyFrame = socket_utils::receiveFrame(connection);
@@ -150,6 +149,7 @@ int main(int argc, char* argv[]) {
         cout << "Hash code (Whirlpool-512): " << secure_exchange::digestHex(digest) << '\n';
         cout << "Digital Signature (r, s): (" << packet.signature.r << ", " << packet.signature.s << ")\n";
 
+        // Send the encrypted message, encrypted IDEA key, client key, and signature.
         const vector<uint8_t> packetFrame = exchange_protocol::encodeClientPacket(packet);
         socket_utils::sendFrame(connection, packetFrame.data(), packetFrame.size());
 

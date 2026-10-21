@@ -55,14 +55,7 @@ TableSet makeTables() {
         const uint8_t x9 = static_cast<uint8_t>(x8 ^ x);
 
         // Circulant diffusion row: (1, 1, 4, 1, 8, 5, 2, 9).
-        const uint64_t t0 = (static_cast<uint64_t>(x) << 56U) |
-                            (static_cast<uint64_t>(x) << 48U) |
-                            (static_cast<uint64_t>(x4) << 40U) |
-                            (static_cast<uint64_t>(x) << 32U) |
-                            (static_cast<uint64_t>(x8) << 24U) |
-                            (static_cast<uint64_t>(x5) << 16U) |
-                            (static_cast<uint64_t>(x2) << 8U) |
-                            static_cast<uint64_t>(x9);
+        const uint64_t t0 = (static_cast<uint64_t>(x) << 56U) | (static_cast<uint64_t>(x) << 48U) | (static_cast<uint64_t>(x4) << 40U) | (static_cast<uint64_t>(x) << 32U) | (static_cast<uint64_t>(x8) << 24U) | (static_cast<uint64_t>(x5) << 16U) | (static_cast<uint64_t>(x2) << 8U) | static_cast<uint64_t>(x9);
 
         for (unsigned int r = 0; r < 8; ++r) {
             tables[r][i] = rotateRight64(t0, 8U * r);
@@ -90,14 +83,7 @@ void writeBigEndian64(uint64_t value, uint8_t* bytes) {
 
 // Whirlpool's combined SubBytes, ShiftColumns and MixRows transform.
 uint64_t transformWord(const array<uint64_t, 8>& input, size_t shift) {
-    return TABLES[0][static_cast<uint8_t>(input[shift] >> 56U)] ^
-           TABLES[1][static_cast<uint8_t>(input[(shift + 7U) & 7U] >> 48U)] ^
-           TABLES[2][static_cast<uint8_t>(input[(shift + 6U) & 7U] >> 40U)] ^
-           TABLES[3][static_cast<uint8_t>(input[(shift + 5U) & 7U] >> 32U)] ^
-           TABLES[4][static_cast<uint8_t>(input[(shift + 4U) & 7U] >> 24U)] ^
-           TABLES[5][static_cast<uint8_t>(input[(shift + 3U) & 7U] >> 16U)] ^
-           TABLES[6][static_cast<uint8_t>(input[(shift + 2U) & 7U] >> 8U)] ^
-           TABLES[7][static_cast<uint8_t>(input[(shift + 1U) & 7U])];
+    return TABLES[0][static_cast<uint8_t>(input[shift] >> 56U)] ^ TABLES[1][static_cast<uint8_t>(input[(shift + 7U) & 7U] >> 48U)] ^ TABLES[2][static_cast<uint8_t>(input[(shift + 6U) & 7U] >> 40U)] ^ TABLES[3][static_cast<uint8_t>(input[(shift + 5U) & 7U] >> 32U)] ^ TABLES[4][static_cast<uint8_t>(input[(shift + 4U) & 7U] >> 24U)] ^ TABLES[5][static_cast<uint8_t>(input[(shift + 3U) & 7U] >> 16U)] ^ TABLES[6][static_cast<uint8_t>(input[(shift + 2U) & 7U] >> 8U)] ^ TABLES[7][static_cast<uint8_t>(input[(shift + 1U) & 7U])];
 }
 
 void processBlock(array<uint64_t, 8>& hash, const uint8_t* block) {

@@ -90,9 +90,7 @@ int main(int argc, char* argv[]) {
             throw invalid_argument("Usage: server [port]");
         }
         const uint16_t port = (argc > 1) ? parsePort(argv[1]) : 8080;
-        cout << "Secure Message Exchange - Server\n"
-             << "Author: Vem Nagarjuna Reddy\n"
-             << "Roll Number: 20243315\n\n";
+        cout << "Secure Message Exchange - Server\n" << "Author: Vem Nagarjuna Reddy\n" << "Roll Number: 20243315\n\n";
         const elgamal::KeyPair serverKeys = readServerKeys();
 
         socket_utils::SocketRuntime runtime;
@@ -101,6 +99,7 @@ int main(int argc, char* argv[]) {
         socket_utils::TcpSocket connection = listener.acceptOne();
         cout << "Client connected.\n";
 
+        // The client first requests the server's public key.
         const vector<uint8_t> request = socket_utils::receiveFrame(connection, 1);
         if (request.size() != 1 || request[0] != exchange_protocol::REQUEST_PUBLIC_KEY) {
             throw invalid_argument("Expected a server public-key request");
@@ -109,6 +108,7 @@ int main(int argc, char* argv[]) {
         const vector<uint8_t> publicKeyFrame = exchange_protocol::encodePublicKey(serverKeys.publicKey);
         socket_utils::sendFrame(connection, publicKeyFrame.data(), publicKeyFrame.size());
 
+        // Receive the encrypted message packet and run the server-side steps.
         const vector<uint8_t> packetFrame = socket_utils::receiveFrame(connection);
         const secure_exchange::ClientPacket packet = exchange_protocol::decodeClientPacket(packetFrame);
         const secure_exchange::ServerResult result = secure_exchange::processClientPacket(packet, serverKeys);

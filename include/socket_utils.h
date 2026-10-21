@@ -1,3 +1,7 @@
+// Author: Vem Nagarjuna Reddy
+// Roll Number: 20243315
+// Purpose: Small cross-platform TCP socket helpers.
+
 #ifndef SOCKET_UTILS_H
 #define SOCKET_UTILS_H
 

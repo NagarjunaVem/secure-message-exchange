@@ -62,25 +62,28 @@ void validateKeyPair(const elgamal::KeyPair& keys) {
     }
 }
 
-elgamal::Number randomNonce(elgamal::Number p, bool signatureNonce) {
+elgamal::Number greatestCommonDivisor(elgamal::Number a, elgamal::Number b) {
+    while (b != 0) {
+        const elgamal::Number remainder = a % b;
+        a = b;
+        b = remainder;
+    }
+    return a;
+}
+
+elgamal::Number randomNonce(elgamal::Number p) {
     static random_device source;
     uniform_int_distribution<elgamal::Number> distribution(1, p - 2);
-    for (;;) {
-        const elgamal::Number candidate = distribution(source);
-        if (!signatureNonce) {
-            return candidate;
-        }
-        elgamal::Number a = candidate;
-        elgamal::Number b = p - 1;
-        while (b != 0) {
-            const elgamal::Number remainder = a % b;
-            a = b;
-            b = remainder;
-        }
-        if (a == 1) {
-            return candidate;
-        }
+    return distribution(source);
+}
+
+elgamal::Number randomSignatureNonce(elgamal::Number p) {
+    // A signature nonce must have an inverse modulo p-1.
+    elgamal::Number candidate = randomNonce(p);
+    while (greatestCommonDivisor(candidate, p - 1) != 1) {
+        candidate = randomNonce(p);
     }
+    return candidate;
 }
 
 vector<elgamal::Number> splitSecretKey(uint32_t secretKey, elgamal::Number base) {
@@ -122,8 +125,8 @@ ClientPacket prepareClientPacket(const string& message, uint32_t secretKey, cons
     packet.messageLength = message.size();
     packet.clientPublicKey = clientKeys.publicKey;
 
-    // IDEA encrypts 2-byte blocks. The original length identifies the one
-    // trailing zero byte used only to fill an odd-length final block.
+    // Encrypt each two-byte part of the message with IDEA.
+    // Save the original length so padding can be removed after decryption.
     for (size_t offset = 0; offset < message.size(); offset += 2) {
         const auto high = static_cast<uint8_t>(message[offset]);
         const auto low = (offset + 1 < message.size())
@@ -135,15 +138,15 @@ ClientPacket prepareClientPacket(const string& message, uint32_t secretKey, cons
         packet.encryptionTrace.push_back(trace);
     }
 
-    // Encode the 32-bit IDEA key as base-p digits so every ElGamal plaintext
-    // is smaller than the server's modulus, including with classroom primes.
+    // Split the IDEA key into base-p digits because ElGamal handles small integers.
     for (const elgamal::Number digit : splitSecretKey(secretKey, serverPublicKey.p)) {
-        packet.encryptedSecretKey.push_back(elgamal::encrypt(digit, serverPublicKey, randomNonce(serverPublicKey.p, false)));
+        packet.encryptedSecretKey.push_back(elgamal::encrypt(digit, serverPublicKey, randomNonce(serverPublicKey.p)));
     }
 
+    // Hash the original message and sign the hash with the client's private key.
     const crypto::WhirlpoolDigest digest = hashMessage(message);
     const elgamal::Number signingValue = digestToScalar(digest, clientKeys.publicKey.p - 1);
-    packet.signature = elgamal::sign(signingValue, clientKeys, randomNonce(clientKeys.publicKey.p, true));
+    packet.signature = elgamal::sign(signingValue, clientKeys, randomSignatureNonce(clientKeys.publicKey.p));
     return packet;
 }
 
@@ -156,6 +159,7 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
         throw invalid_argument("Malformed encrypted message packet");
     }
 
+    // Decrypt each key digit and join the digits back into the IDEA key.
     elgamal::Number recoveredKey = 0;
     for (const elgamal::Ciphertext& encryptedDigit : packet.encryptedSecretKey) {
         const elgamal::Number digit = elgamal::decrypt(encryptedDigit, serverKeys);
@@ -177,6 +181,7 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
     }
     result.message.resize(packet.messageLength);
 
+    // Hash the recovered message and check the client's signature.
     result.digest = hashMessage(result.message);
     const elgamal::Number signingValue = digestToScalar(result.digest, packet.clientPublicKey.p - 1);
     result.signatureValid = elgamal::verify(signingValue, packet.signature, packet.clientPublicKey);

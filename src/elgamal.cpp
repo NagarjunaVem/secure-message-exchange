@@ -1,4 +1,10 @@
+// Author: Vem Nagarjuna Reddy
+// Roll Number: 20243315
+// Purpose: ElGamal encryption, decryption, and digital signatures.
+
 #include "elgamal.h"
+
+#include <cstdint>
 #include <stdexcept>
 
 using namespace std;
@@ -10,6 +16,7 @@ Number modPow(Number base, Number exponent, Number modulus) {
         throw invalid_argument("Modulus must be at least 2");
     }
 
+    // Repeated squaring calculates the power without a large intermediate value.
     Number result = 1;
     base %= modulus;
 
@@ -42,6 +49,7 @@ Ciphertext encrypt(Number message, const PublicKey& key, Number k) {
         throw invalid_argument("Invalid encryption parameters");
     }
 
+    // ElGamal encryption uses the receiver's public key and a fresh nonce.
     const Number c1 = modPow(key.g, k, key.p);
     const Number shared = modPow(key.y, k, key.p);
     const Number c2 = (message * shared) % key.p;
@@ -56,6 +64,7 @@ Number decrypt(const Ciphertext& ciphertext, const KeyPair& key) {
         throw invalid_argument("Invalid ciphertext");
     }
 
+    // The private key recreates the shared value used by the sender.
     const Number shared = modPow(ciphertext.c1, key.privateKey, p);
 
     // Find the multiplicative inverse of shared modulo p.
@@ -139,8 +148,7 @@ bool verify(Number hash, const Signature& signature, const PublicKey& key) {
 
     const Number left = modPow(key.g, hash, p);
 
-    const Number right = (modPow(key.y, signature.r, p) * modPow(signature.r, signature.s, p)) %
-                         p;
+    const Number right = (modPow(key.y, signature.r, p) * modPow(signature.r, signature.s, p)) % p;
 
     return left == right;
 }

@@ -1,3 +1,7 @@
+// Author: Vem Nagarjuna Reddy
+// Roll Number: 20243315
+// Purpose: Open, use, and close TCP sockets on Windows and POSIX systems.
+
 #include "socket_utils.h"
 
 #include <cerrno>
@@ -85,6 +89,7 @@ TcpSocket TcpSocket::connectTo(const string& host, uint16_t port) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
+    // Find an address for the server name, then try each returned address.
     addrinfo* addresses = nullptr;
     const string service = to_string(port);
     const int lookup = getaddrinfo(host.c_str(), service.c_str(), &hints, &addresses);
@@ -131,6 +136,7 @@ TcpSocket TcpSocket::listenOn(uint16_t port) {
     hints.ai_protocol = IPPROTO_TCP;
     hints.ai_flags = AI_PASSIVE;
 
+    // Bind the listening socket to the requested local port.
     addrinfo* addresses = nullptr;
     const string service = to_string(port);
     const int lookup = getaddrinfo(nullptr, service.c_str(), &hints, &addresses);
@@ -252,6 +258,7 @@ void sendFrame(const TcpSocket& socket, const uint8_t* data, size_t size) {
     if (size > numeric_limits<uint32_t>::max()) {
         throw length_error("Frame exceeds the 32-bit length field");
     }
+    // Send the frame size first so the receiver knows how many bytes to read.
     const uint32_t length = static_cast<uint32_t>(size);
     const uint8_t prefix[] = {static_cast<uint8_t>(length >> 24U), static_cast<uint8_t>(length >> 16U), static_cast<uint8_t>(length >> 8U), static_cast<uint8_t>(length)};
     socket.sendAll(prefix, sizeof(prefix));
@@ -261,10 +268,7 @@ void sendFrame(const TcpSocket& socket, const uint8_t* data, size_t size) {
 vector<uint8_t> receiveFrame(const TcpSocket& socket, size_t maximumSize) {
     uint8_t prefix[4]{};
     socket.receiveAll(prefix, sizeof(prefix));
-    const uint32_t length = (static_cast<uint32_t>(prefix[0]) << 24U) |
-                            (static_cast<uint32_t>(prefix[1]) << 16U) |
-                            (static_cast<uint32_t>(prefix[2]) << 8U) |
-                            static_cast<uint32_t>(prefix[3]);
+    const uint32_t length = (static_cast<uint32_t>(prefix[0]) << 24U) | (static_cast<uint32_t>(prefix[1]) << 16U) | (static_cast<uint32_t>(prefix[2]) << 8U) | static_cast<uint32_t>(prefix[3]);
     if (length > maximumSize) {
         throw length_error("Received frame exceeds the configured limit");
     }
