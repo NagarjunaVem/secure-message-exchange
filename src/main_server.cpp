@@ -95,11 +95,12 @@ int main(int argc, char* argv[]) {
 
         socket_utils::SocketRuntime runtime;
         socket_utils::TcpSocket listener = socket_utils::TcpSocket::listenOn(port);
-        cout << "Listening on port " << port << "; waiting for a client...\n";
+        cout << "Step 1: Listening on port " << port << "; waiting for a client...\n";
         socket_utils::TcpSocket connection = listener.acceptOne();
-        cout << "Client connected.\n";
+        cout << "Step 2: Client connected.\n";
 
         // The client first requests the server's public key.
+        cout << "Step 3: Waiting for the client to request the server public key.\n";
         const vector<uint8_t> request = socket_utils::receiveFrame(connection, 1);
         if (request.size() != 1 || request[0] != exchange_protocol::REQUEST_PUBLIC_KEY) {
             throw invalid_argument("Expected a server public-key request");
@@ -107,15 +108,20 @@ int main(int argc, char* argv[]) {
 
         const vector<uint8_t> publicKeyFrame = exchange_protocol::encodePublicKey(serverKeys.publicKey);
         socket_utils::sendFrame(connection, publicKeyFrame.data(), publicKeyFrame.size());
+        cout << "Step 4: Sent server public key over TCP (p, g, y): " << serverKeys.publicKey.p << ", " << serverKeys.publicKey.g << ", " << serverKeys.publicKey.y << ".\n";
 
         // Receive the encrypted message packet and run the server-side steps.
+        cout << "Step 5: Waiting for the encrypted message packet and signature.\n";
         const vector<uint8_t> packetFrame = socket_utils::receiveFrame(connection);
         const secure_exchange::ClientPacket packet = exchange_protocol::decodeClientPacket(packetFrame);
-        const secure_exchange::ServerResult result = secure_exchange::processClientPacket(packet, serverKeys);
+        cout << "Step 6: Received packet; client public key (p, g, y): " << packet.clientPublicKey.p << ", " << packet.clientPublicKey.g << ", " << packet.clientPublicKey.y << ".\n";
+        cout << "Step 7: Processing the received packet.\n";
+        const secure_exchange::ServerResult result = secure_exchange::processClientPacket(packet, serverKeys, [](const string& step) { cout << "    -> " << step << '\n'; });
         printServerResult(packet, result, serverKeys);
 
         const vector<uint8_t> reply = exchange_protocol::encodeServerReply(result);
         socket_utils::sendFrame(connection, reply.data(), reply.size());
+        cout << "Step 8: Sent signature verification result to the client.\n";
         return result.signatureValid ? 0 : 1;
     } catch (const exception& error) {
         cerr << "Server error: " << error.what() << '\n';

@@ -62,6 +62,12 @@ builds the client and server, opens a server window, then opens a client window.
 Enter the server values first, followed by the message and client values. The
 MSYS2 MinGW-w64 `g++` compiler must be available on `PATH`.
 
+During a run, the client and server print each protocol stage as it happens:
+public-key exchange, IDEA encryption, ElGamal key wrapping and signature,
+packet transfer, key recovery, IDEA decryption, Whirlpool hashing, and
+signature verification. The public key is sent openly over TCP; this small demo
+does not authenticate the server or protect the connection with TLS.
+
 To run them manually:
 
 1. Open one terminal and start the server: `.\build\server.exe`.

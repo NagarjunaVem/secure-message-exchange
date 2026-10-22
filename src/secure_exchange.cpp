@@ -117,7 +117,7 @@ crypto::WhirlpoolDigest hashMessage(const string& message) {
 
 }  // namespace
 
-ClientPacket prepareClientPacket(const string& message, uint32_t secretKey, const elgamal::KeyPair& clientKeys, const elgamal::PublicKey& serverPublicKey) {
+ClientPacket prepareClientPacket(const string& message, uint32_t secretKey, const elgamal::KeyPair& clientKeys, const elgamal::PublicKey& serverPublicKey, const ProgressCallback& progress) {
     validateKeyPair(clientKeys);
     validatePublicKey(serverPublicKey);
 
@@ -127,6 +127,7 @@ ClientPacket prepareClientPacket(const string& message, uint32_t secretKey, cons
 
     // Encrypt each two-byte part of the message with IDEA.
     // Save the original length so padding can be removed after decryption.
+    if (progress) progress("IDEA: encrypting the message in 16-bit blocks with the client key.");
     for (size_t offset = 0; offset < message.size(); offset += 2) {
         const auto high = static_cast<uint8_t>(message[offset]);
         const auto low = (offset + 1 < message.size())
@@ -139,18 +140,21 @@ ClientPacket prepareClientPacket(const string& message, uint32_t secretKey, cons
     }
 
     // Split the IDEA key into base-p digits because ElGamal handles small integers.
+    if (progress) progress("ElGamal: encrypting the IDEA key digits with the server public key.");
     for (const elgamal::Number digit : splitSecretKey(secretKey, serverPublicKey.p)) {
         packet.encryptedSecretKey.push_back(elgamal::encrypt(digit, serverPublicKey, randomNonce(serverPublicKey.p)));
     }
 
     // Hash the original message and sign the hash with the client's private key.
+    if (progress) progress("Whirlpool: calculating the message hash.");
     const crypto::WhirlpoolDigest digest = hashMessage(message);
     const elgamal::Number signingValue = digestToScalar(digest, clientKeys.publicKey.p - 1);
+    if (progress) progress("ElGamal: signing the Whirlpool hash with the client private key.");
     packet.signature = elgamal::sign(signingValue, clientKeys, randomSignatureNonce(clientKeys.publicKey.p));
     return packet;
 }
 
-ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyPair& serverKeys) {
+ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyPair& serverKeys, const ProgressCallback& progress) {
     validateKeyPair(serverKeys);
     validatePublicKey(packet.clientPublicKey);
 
@@ -160,6 +164,7 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
     }
 
     // Decrypt each key digit and join the digits back into the IDEA key.
+    if (progress) progress("ElGamal: decrypting the wrapped IDEA key with the server private key.");
     elgamal::Number recoveredKey = 0;
     for (const elgamal::Ciphertext& encryptedDigit : packet.encryptedSecretKey) {
         const elgamal::Number digit = elgamal::decrypt(encryptedDigit, serverKeys);
@@ -172,6 +177,7 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
     ServerResult result;
     result.secretKey = static_cast<uint32_t>(recoveredKey);
     result.message.reserve(packet.ciphertextBlocks.size() * 2U);
+    if (progress) progress("IDEA: decrypting the received message blocks with the recovered key.");
     for (const uint16_t ciphertext : packet.ciphertextBlocks) {
         simplified_idea::BlockTrace trace;
         const uint16_t plaintext = simplified_idea::decrypt(ciphertext, result.secretKey, &trace);
@@ -182,8 +188,10 @@ ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyP
     result.message.resize(packet.messageLength);
 
     // Hash the recovered message and check the client's signature.
+    if (progress) progress("Whirlpool: calculating a fresh hash of the recovered message.");
     result.digest = hashMessage(result.message);
     const elgamal::Number signingValue = digestToScalar(result.digest, packet.clientPublicKey.p - 1);
+    if (progress) progress("ElGamal: verifying the signature with the client public key.");
     result.signatureValid = elgamal::verify(signingValue, packet.signature, packet.clientPublicKey);
     return result;
 }

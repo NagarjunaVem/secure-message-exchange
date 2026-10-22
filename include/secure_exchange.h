@@ -13,10 +13,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
 namespace secure_exchange {
+
+    using ProgressCallback = std::function<void(const std::string&)>;
 
     struct ClientPacket {
         std::vector<std::uint16_t> ciphertextBlocks;
@@ -37,10 +40,10 @@ namespace secure_exchange {
 
     // Encrypts the message with IDEA, wraps its key for the server, and signs its
     // Whirlpool digest with the client's ElGamal private key.
-    ClientPacket prepareClientPacket(const std::string& message, std::uint32_t secretKey, const elgamal::KeyPair& clientKeys, const elgamal::PublicKey& serverPublicKey);
+    ClientPacket prepareClientPacket(const std::string& message, std::uint32_t secretKey, const elgamal::KeyPair& clientKeys, const elgamal::PublicKey& serverPublicKey, const ProgressCallback& progress = {});
 
     // Recovers the IDEA key and message, then verifies the client's signature.
-    ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyPair& serverKeys);
+    ServerResult processClientPacket(const ClientPacket& packet, const elgamal::KeyPair& serverKeys, const ProgressCallback& progress = {});
 
     std::string digestHex(const crypto::WhirlpoolDigest& digest);
 
